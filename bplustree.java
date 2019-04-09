@@ -12,7 +12,8 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
     //constructors
     public BPlusTree()
     {
-        root();
+        root = new LeafNode();
+        root.parent=null;
     }
 
     //methods
@@ -35,20 +36,14 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
             IndexNode midNode=currLeaf.split();
             IndexNode temp = currLeaf.parent;
             if(temp==null){                                  //if the root is overfilled, then set remaining tree as L child of created split tree and update root
-                // System.out.println("here");
                 if(midNode.children.get(0)==null) midNode.children.remove(0);
                 midNode.children.add(0,currLeaf);
                 root=midNode;
             }else {
-                // System.out.println("is temp full?" + temp.isFull());
-                // System.out.println("order:" + order);
-                // System.out.println("temp key size: "+temp.keys.size());
-                // System.out.println("temp key: "+temp.keys.get(0));
                 while(temp.isFull()){
                     temp.merge(midNode);
                     midNode=temp.split();
                     if(temp.parent==null){                  //if the root is overfilled, then set remaining tree as L child of created split tree and update root
-                        //midNode.children.add(0,temp);
                         root=midNode;
                         return;
                     }else {
@@ -82,7 +77,15 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
      */
     public double Search(int key)
     {
-        return 0.0;
+        LeafNode temp = locateLeaf(key);
+        int index=-1;
+        for(int i=0; i < temp.keys.size();i++){
+            if(temp.keys.get(i)==key){
+                index=i;
+                break;
+            }
+        }
+        return temp.values.get(index);
     }
 
     /**
@@ -93,9 +96,40 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
      */
     public String Search(int key1, int key2)
     {
-        return "";
+        LeafNode temp = locateLeaf(key1);
+        String str="";
+        str+=extract(key1, key2, temp);
+        int currVal=temp.keys.get(temp.keys.size()-1);
+        while(currVal < key2 && temp.next!=null){
+            temp=temp.next;
+            str+=", "+ extract(key1, key2, temp);
+            currVal=temp.keys.get(temp.keys.size()-1);
+        }
+        return str;
     }
 
+    /**
+     * @param key1  the lower bound for the key range (inclusive)
+     * @param key2  the upper bound for the key range (inclusive)
+     * @param node  the LeafNode in which we want to extract the values from
+     * @return  a comma seperated string containing the values corresponding to keys
+     *          in which key1 <= key <= key2
+     */
+    public String extract(int key1, int key2, LeafNode node){
+        String str="";
+        for(int i=0; i < node.keys.size();i++){
+            if(node.keys.get(i) == key1 || i==0){
+                str= str + node.values.get(i);
+            }else if (node.keys.get(i) > key1 && node.keys.get(i) <= key2){
+                str= str + ", " + node.values.get(i);
+            }
+        }
+        return str;
+    }
+    
+    /**
+     * @return a "pretty printed" visual representation of tree structure
+     */
     public String toString()
     {
         System.out.print("(ROOT): ");
@@ -109,6 +143,9 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
         return "";
     }
 
+    /**
+     *  a function for internal use within toString()
+     */
     static void writeNode(Node node, String prefix, boolean hasmoresibs) {
         System.out.println();        
         if (hasmoresibs) {
@@ -133,7 +170,10 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
         }
     }
 
-
+    /**
+     * @param key The target key
+     * @return The LeafNode in which the key exists (or would exist if the key is not contained)
+     */
     public LeafNode locateLeaf(int key){
         if(LeafList.size()==0){
             root = new LeafNode();
@@ -141,22 +181,41 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
         }else {
             LeafNode temp = LeafList.getFirst();
             for(int i=0; i< LeafList.size()-1;i ++ ){
-                if(key > LeafList.get(i).keys.get(temp.keys.size()-1)){
-                    if(key >= LeafList.get(i+1).keys.get(0)){
+                if(key > LeafList.get(i).keys.get(temp.keys.size()-1)){ //if key > last element of ith element of leaflist
+                    if(key >= LeafList.get(i+1).keys.get(0)){           //if key >= first element of i+1 th element of leaflist
                         continue;
                     }else {
                         return LeafList.get(i);
                     }
+                }else {                                                //if key <= last element of ith element
+                    return LeafList.get(i);
                 }
             }
             return LeafList.get(LeafList.size()-1);
         }
     }
     
-    public void root(){         //initializes root
-        root = new LeafNode();
-        root.parent=null;
+    /**
+     *  This function updates the prev and next LeafNode pointers within the LeafNode class
+     */
+    void updateLeafPointers(){
+        for(int i=0; i< LeafList.size()-1;i ++ ){
+            LeafList.get(i).setNext(LeafList.get(i+1));
+            LeafList.get(i+1).setPrev(LeafList.get(i));
+        }
     }
+
+
+
+
+    /** ----------------------------------------------------------------------------------------------------------------------------------------------
+     * 
+     * 
+     * 
+     *  NODE CLASS
+     * 
+     * 
+     */
 
     private abstract class Node 
     {
@@ -166,7 +225,12 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
 
         //methods   
         abstract IndexNode split();
-        abstract boolean isFull();
+        boolean isFull(){
+            if(keys.size() >= (order)){
+                return true;
+            }
+            else return false;
+        }
         abstract boolean isLeaf();
         void setParent(IndexNode parent){
             this.parent=parent;
@@ -174,6 +238,15 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
     }
 
 
+
+    /** ----------------------------------------------------------------------------------------------------------------------------------------------
+     * 
+     * 
+     * 
+     *  INDEX NODE CLASS
+     * 
+     * 
+     */
 
     private class IndexNode extends Node 
     {
@@ -193,6 +266,11 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
         }
 
         //methods
+
+        /**
+         *  This function will return the newly "split" node and expects that it is working with an "overfilled" node
+         *  This function also removes split values from original node
+         */
         IndexNode split(){
             int midIndex = (int)Math.ceil(order/2);
             IndexNode midNode = new IndexNode(keys.get(midIndex));
@@ -214,7 +292,10 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
             return midNode;
         }
 
-
+        /**
+         * @param insertNode the Node that we wish to merge with the calling node
+         *  This function merges the key and corresponding children of insertNode with the calling node
+         */
         void merge(IndexNode insertNode){
             if(keys.size()==0){
                 keys.add(insertNode.keys.get(0));
@@ -247,16 +328,9 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
             }
         }
 
-        
-
-
-        boolean isFull(){
-            if(keys.size() >= (order)){
-                return true;
-            }
-            else return false;
-        }
-
+        /**
+         *  This function helps identify this node as an IndexNode (for internal use/ checking conditions prior to casting Node type to IndexNode) 
+         */
         boolean isLeaf(){
             return false;
         }
@@ -265,10 +339,22 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
 
 
 
+
+    /** ----------------------------------------------------------------------------------------------------------------------------------------------
+     * 
+     * 
+     * 
+     *  INDEX NODE CLASS
+     * 
+     * 
+     */
+
     private class LeafNode extends Node
     {
         //variables
         ArrayList<Double> values;
+        LeafNode next;
+        LeafNode prev;
 
         //constructors
         LeafNode()
@@ -276,15 +362,10 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
             keys = new ArrayList<Integer>();
             values = new ArrayList<Double>();
             LeafList.add(this);
+            updateLeafPointers();
         }
 
         //methods
-        boolean isFull(){
-            if(keys.size() >= (order)){
-                return true;
-            }
-            else return false;
-        }
 
         IndexNode split(){
             int midIndex = (int)Math.ceil(order/2);
@@ -303,10 +384,11 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
             return midNode;
         }
 
-        boolean isLeaf(){
-            return true;
-        }
-
+        /**
+         * @param key   the key to be inserted into the new node
+         * @param value the value to be inserted into the new node
+         * This function will create a node with keys.size() = order+1, this function is meant as a precursor to the function split()
+         */
         void overfill(int key, double value){
             if(keys.size()==0){
                 keys.add(key);
@@ -332,7 +414,29 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
             }
         }
 
+        /**
+         * setter function for prev pointer
+         */
+        void setPrev(LeafNode prev){
+            this.prev=prev;
+        }
+
+        /**
+         * setter function for next pointer
+         */
+        void setNext(LeafNode next){
+            this.next=next;
+        }
+
+        /**
+         *  This function helps identify this node as an LeafNode (for internal use/ checking conditions prior to casting Node type to LeafNode) 
+         */
+        boolean isLeaf(){
+            return true;
+        }
+
     }
+
 
     public static void main(String[] args){
         BPlusTree btree = new BPlusTree();
@@ -360,7 +464,6 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
         System.out.println("child[1]: "+((IndexNode)btree.root).children.get(1).keys.get(0));
         System.out.println("child[2]: "+((IndexNode)btree.root).children.get(2).keys.get(0));
         System.out.println("child[2b]: "+((IndexNode)btree.root).children.get(2).keys.get(1));
-  //      System.out.println("child[3]: "+((IndexNode)btree.root).children.get(3).keys.get(0));
         btree.toString();
         System.out.println("\n\n");
 
@@ -377,7 +480,17 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
         System.out.println("gchild[1:0]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(0).keys.get(0));
         System.out.println("num children: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.size());
         System.out.println("gchild[1:1]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(1).keys.get(0));
-   //     System.out.println("gchild[1:1b]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(1).keys.get(1)+"\n\n");
         btree.toString();
+        System.out.println(btree.Search(7));
+        System.out.println(btree.Search(3,5));
+        LeafNode temp = btree.locateLeaf(3);
+        System.out.println("key of temp.next: "+temp.next.keys.get(0));
+        System.out.println("Search [3:3]: "+btree.Search(3,3));
+        System.out.println("Search [3:4]: "+btree.Search(3,4));
+        System.out.println("Search [3:5]: "+btree.Search(3,5));
+        System.out.println("Search [3:6]: "+btree.Search(3,6));
+        System.out.println("Search [3:7]: "+btree.Search(3,7));
+        System.out.println("Search [3:9]: "+btree.Search(3,9));
+
     }
 }
