@@ -34,22 +34,21 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
             currLeaf.overfill(key, value);
             IndexNode midNode=currLeaf.split();
             IndexNode temp = currLeaf.parent;
-            if(temp==null){                  //if the root is overfilled, then set remaining tree as L child of created split tree and update root
-                System.out.println("here");
+            if(temp==null){                                  //if the root is overfilled, then set remaining tree as L child of created split tree and update root
+                // System.out.println("here");
                 if(midNode.children.get(0)==null) midNode.children.remove(0);
-          //      midNode.children.add(0,currLeaf);
+                midNode.children.add(0,currLeaf);
                 root=midNode;
             }else {
-                System.out.println("is temp full?" + temp.isFull());
-                System.out.println("order:" + order);
-                System.out.println("temp key size: "+temp.keys.size());
-                System.out.println("temp key: "+temp.keys.get(0));
+                // System.out.println("is temp full?" + temp.isFull());
+                // System.out.println("order:" + order);
+                // System.out.println("temp key size: "+temp.keys.size());
+                // System.out.println("temp key: "+temp.keys.get(0));
                 while(temp.isFull()){
-                    System.out.println("init");
                     temp.merge(midNode);
                     midNode=temp.split();
                     if(temp.parent==null){                  //if the root is overfilled, then set remaining tree as L child of created split tree and update root
-              //          midNode.children.add(0,temp);
+                        //midNode.children.add(0,temp);
                         root=midNode;
                         return;
                     }else {
@@ -99,18 +98,41 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
 
     public String toString()
     {
+        System.out.print("(ROOT): ");
+        for(int k: root.keys) {
+            System.out.print(k+"  ");
+        }
+        for (int i = 0; i < ((IndexNode)root).children.size(); i++) {
+            writeNode(((IndexNode)root).children.get(i), " ", i < ((IndexNode)root).children.size() - 1);
+        }
+
         return "";
     }
 
-    // public void updateLeafList(Node currNode){
-    //     if(currNode.isLeaf()){
+    static void writeNode(Node node, String prefix, boolean hasmoresibs) {
+        System.out.println();        
+        if (hasmoresibs) {
+            System.out.print(prefix + "├── ");
+        } else {
+            System.out.print(prefix + "└── ");
+        }
+        for(int k: node.keys) {
+            System.out.print(k+"  ");
+        }
 
-    //     }else {
-    //         for(int i=0; i < ((IndexNode)currNode).children.size(); i++){
-    //             updateLeafList(((IndexNode)currNode).children.get(i));
-    //         }
-    //     }
-    // }
+        String newprefix = prefix;
+        if (hasmoresibs) {
+            newprefix += "│   ";
+        } else {
+            newprefix += "    ";
+        }
+        if(!node.isLeaf()){
+            for (int i = 0; i < ((IndexNode)node).children.size(); i++) {
+                writeNode(((IndexNode)node).children.get(i), newprefix, i < (((IndexNode)node).children.size() - 1));
+            }
+        }
+    }
+
 
     public LeafNode locateLeaf(int key){
         if(LeafList.size()==0){
@@ -192,44 +214,6 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
             return midNode;
         }
 
-        // void merge(IndexNode insertNode){
-        //     int indexInsert=-1;
-        //     for(int i=0; i< keys.size(); i++){
-        //         if(insertNode.keys.get(0) < keys.get(i)){                       //if the key < current element, indexInsert is updated to current key
-        //             indexInsert=i;
-        //         }else if (insertNode.keys.get(0) > keys.get(i)){                // if the key > current element, add key in proper location in index node
-        //             keys.add(indexInsert+1, insertNode.keys.get(0));            
-        //             if(insertNode.children.size()==2){
-        //                 if(insertNode.children.get(0)==null){
-        //                     insertNode.children.get(0).setParent(this);
-        //                     children.add(indexInsert, insertNode.children.get(0));
-        //                 }
-        //                 insertNode.children.get(1).setParent(this);
-        //                 children.add(indexInsert+1, insertNode.children.get(1));
-        //             }else if (insertNode.children.size()==1){
-        //                 insertNode.children.get(0).setParent(this);
-        //                 children.add(indexInsert, insertNode.children.get(0));
-        //             }
-        //             break;
-        //         }else {                                                         // if the key exists, replace the element
-        //             keys.remove(indexInsert+1);
-        //             keys.add(indexInsert+1, insertNode.keys.get(0));
-        //             children.remove(indexInsert);
-        //             children.remove(indexInsert+1);
-        //             if(insertNode.children.size()==2){
-        //                 insertNode.children.get(0).setParent(this);
-        //                 insertNode.children.get(1).setParent(this);
-        //                 children.add(indexInsert, insertNode.children.get(0));
-        //                 children.add(indexInsert+1, insertNode.children.get(1));
-        //             }else if (insertNode.children.size()==1){
-        //                 insertNode.children.get(0).setParent(this);
-        //                 children.add(indexInsert, insertNode.children.get(0));
-        //             }
-        //         }
-        //     }
-        // }
-
-
 
         void merge(IndexNode insertNode){
             if(keys.size()==0){
@@ -239,7 +223,6 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
                 for(int i=0; i< keys.size();i++){
                     indexInsert=i;
                     if(insertNode.keys.get(0) > keys.get(i)){
-                        System.out.println("keys.get("+i+"): "+ keys.get(i));
                         continue;
                     }else if(insertNode.keys.get(0) == keys.get(i)){
                         keys.remove(i);
@@ -254,10 +237,8 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
                         break;
                     }
                 }
-                System.out.println("indexInsert: "+indexInsert);
                 keys.add(indexInsert+1, insertNode.keys.get(0));
                 for(int i=0; i<insertNode.children.size();i++){
-                 //   insertNode.children.get(i).setParent(this);
                     if(insertNode.children.get(i)==null){
                     }else {
                         children.add(indexInsert+1+i, insertNode.children.get(i));
@@ -297,15 +278,6 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
             LeafList.add(this);
         }
 
-        LeafNode(int key, double value)
-        {
-            keys = new ArrayList<Integer>();
-            values = new ArrayList<Double>();
-            keys.add(key);
-            values.add(value);
-            LeafList.add(this);
-        }
-
         //methods
         boolean isFull(){
             if(keys.size() >= (order)){
@@ -316,9 +288,6 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
 
         IndexNode split(){
             int midIndex = (int)Math.ceil(order/2);
-            System.out.println("mid index: "+midIndex);
-            System.out.println("keys size: "+keys.size());
-            System.out.println("new root key: "+keys.get(midIndex));
             IndexNode midNode = new IndexNode(keys.get(midIndex));
             LeafNode childNode = new LeafNode();
             for (int i= midIndex; i<= order; i++){
@@ -327,7 +296,8 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
                 keys.remove(midIndex);
                 values.remove(midIndex);
             }
-            midNode.children.add(0,this);
+            midNode.children.add(0,null);
+         //   this.parent.children.remove(this.parent.keys.size()+1);
             childNode.setParent(midNode);
             midNode.children.add(1, childNode);
             return midNode;
@@ -346,7 +316,6 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
                 for(int i=0; i< keys.size();i++){
                     index=i;
                     if(key > keys.get(i)){
-                        System.out.println("keys.get("+i+"): "+ keys.get(i));
                         continue;
                     }else if(key == keys.get(i)){
                         keys.remove(i);
@@ -365,91 +334,50 @@ public class BPlusTree //Comparable must be a superclass of K, which is extended
 
     }
 
-
-    // private class LeafList
-    // {
-    //     //variables
-    //     LeafNode head;
-    //     LeafNode tail;
-
-    //     //constructors
-    //     LeafList(int key, double value)
-    //     {
-    //         head = new LeafNode(key, value);
-    //         tail = new LeafNode(key, value);
-    //     }
-
-    //     LeafNode get(int index)
-    //     {
-    //         LeafNode temp = head;
-    //         for(int i=0 ; i < index; i++)
-    //         {
-    //             temp=temp.next;
-    //         }
-    //         return temp;
-    //     }
-
-    //     void addLeaf(){
-    //         LeafNode temp = head;
-    //         while(temp.next!=null){
-
-    //         }
-    //     }
-
-    //     //methods
-    //     LeafNode locateLeaf(int key){
-    //         LeafNode temp = head;
-    //         while(key > temp.keys.get(temp.keys.size()-1)){
-    //             if(key >= temp.next.keys.get(0)){
-    //                 temp=temp.next;
-    //             }
-    //         }
-    //         return temp;
-    //     }
-
-
-
-    // }
-
     public static void main(String[] args){
         BPlusTree btree = new BPlusTree();
         btree.Initialize(2);
         btree.Insert(3,10.0);
-        System.out.println("LeafList size: "+btree.LeafList.size());
         btree.Insert(4,11.0);
-        System.out.println("LeafList size: "+btree.LeafList.size());
         System.out.println("root: "+(btree.root).keys.get(0));
-        System.out.println("root[1]: "+(btree.root).keys.get(1));
+        System.out.println("root[b]: "+(btree.root).keys.get(1)+"\n\n");
+
         btree.Insert(5,17.0);
-        System.out.println(": "+((btree.root).keys.size()));
-        System.out.println("root: "+(btree.root).keys.get(0));
         System.out.println("num children: "+(((IndexNode)btree.root).children.size()));
-        System.out.println("child[0]: "+(((IndexNode)btree.root).children.get(0).keys.get(0)));
-        System.out.println("child[1]: "+(((IndexNode)btree.root).children.get(1).keys.get(0)));
-        System.out.println("child[1b]: "+(((IndexNode)btree.root).children.get(1).keys.get(1)));
-        btree.Insert(6,12.0);
         System.out.println("root: "+(btree.root).keys.get(0));
+        System.out.println("child[0]: "+((IndexNode)btree.root).children.get(0).keys.get(0));
+        System.out.println("child[1]: "+((IndexNode)btree.root).children.get(1).keys.get(0));
+        System.out.println("child[1b]: "+((IndexNode)btree.root).children.get(1).keys.get(1));
+        btree.toString();
+        System.out.println("\n\n");
+
+        btree.Insert(6,12.0);
         System.out.println("root size: "+(btree.root).keys.size());
         System.out.println("num children: "+(((IndexNode)btree.root).children.size()));
-        System.out.println("child[0]: "+(((IndexNode)btree.root).children.get(0).keys.get(0)));
-        System.out.println("child[1]: "+(((IndexNode)btree.root).children.get(1).keys.get(0)));
-        System.out.println("child[2]: "+(((IndexNode)btree.root).children.get(2).keys.get(0)));
-        System.out.println("child[2b]: "+(((IndexNode)btree.root).children.get(2).keys.get(1)));
-   //     System.out.println("child[3b]: "+(((IndexNode)btree.root).children.get(3).keys.get(1)));
+        System.out.println("root: "+(btree.root).keys.get(0));
+        System.out.println("root[b]: "+(btree.root).keys.get(1));
+        System.out.println("child[0]: "+((IndexNode)btree.root).children.get(0).keys.get(0));
+        System.out.println("child[1]: "+((IndexNode)btree.root).children.get(1).keys.get(0));
+        System.out.println("child[2]: "+((IndexNode)btree.root).children.get(2).keys.get(0));
+        System.out.println("child[2b]: "+((IndexNode)btree.root).children.get(2).keys.get(1));
+  //      System.out.println("child[3]: "+((IndexNode)btree.root).children.get(3).keys.get(0));
+        btree.toString();
+        System.out.println("\n\n");
+
 
         btree.Insert(7,22.0);
-        System.out.println("root: "+(btree.root).keys.get(0));
         System.out.println("root size: "+(btree.root).keys.size());
-        System.out.println("num children: "+(((IndexNode)btree.root).children.size()));
-        System.out.println("child[0]: "+(((IndexNode)btree.root).children.get(0).keys.get(0)));
-        System.out.println("child[1]: "+(((IndexNode)btree.root).children.get(1).keys.get(0)));
+        System.out.println("num children: "+((IndexNode)btree.root).children.size());
+        System.out.println("root: "+(btree.root).keys.get(0));
+        System.out.println("child[0]: "+((IndexNode)btree.root).children.get(0).keys.get(0));
+        System.out.println("child[1]: "+((IndexNode)btree.root).children.get(1).keys.get(0));
+        System.out.println("num children of child[0]: "+((IndexNode)((IndexNode)btree.root).children.get(0)).children.size());
         System.out.println("gchild[0:0]: "+((IndexNode)((IndexNode)btree.root).children.get(0)).children.get(0).keys.get(0));
         System.out.println("gchild[0:1]: "+((IndexNode)((IndexNode)btree.root).children.get(0)).children.get(1).keys.get(0));
         System.out.println("gchild[1:0]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(0).keys.get(0));
-        System.out.println("num children: "+(((IndexNode)((IndexNode)btree.root).children.get(1)).children.size()));
+        System.out.println("num children: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.size());
         System.out.println("gchild[1:1]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(1).keys.get(0));
-        System.out.println("gchild[1:1]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(1).keys.get(1));
-    //    System.out.println("child[3]: "+(((IndexNode)btree.root).children.get(3).keys.get(0)));
-
+   //     System.out.println("gchild[1:1b]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(1).keys.get(1)+"\n\n");
+        btree.toString();
     }
 }
