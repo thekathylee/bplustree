@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.lang.Math;
 
 public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be a superclass of K, which is extended by K
@@ -6,6 +7,7 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
     //variables
     int order;
     Node root;
+    LinkedList<LeafNode> LeafList =new LinkedList<LeafNode>();  
 
     //constructors
     public BPlusTree()
@@ -21,14 +23,31 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
     }
 
     /**
-     * This method insets a new leafNode associated with a specific key
+     * This method inserts a new leafNode associated with a specific key
      * @param key: the key associated with the value
      * @param value: the data to be inserted
      * @return none
      */
     public void Insert (int key, double value)
     {
-
+        if(locateLeaf(key).isFull()){
+            LeafNode currLeaf= locateLeaf(key);
+            currLeaf.overfill(key, value);
+            IndexNode midNode=currLeaf.split();
+            IndexNode temp = currLeaf.parent;
+            while(temp.isFull()){
+                temp.merge(midNode);
+                midNode=temp.split();
+                if(temp.parent==null){                  //if the root is overfilled, then set remaining tree as L child of created split tree and update root
+                    midNode.children.add(0,temp);
+                    root=midNode;
+                    return;
+                }else {
+                    temp=temp.parent;
+                }
+            }
+            temp.merge(midNode);
+        }
     }
 
     /**
@@ -67,20 +86,35 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
 
     }
 
-    public void updateLeafList(Node currNode){
-        if(currNode.isLeaf()){
+    // public void updateLeafList(Node currNode){
+    //     if(currNode.isLeaf()){
 
-        }else {
-            for(int i=0; i < ((IndexNode)currNode).children.size(); i++){
-                updateLeafList(((IndexNode)currNode).children.get(i));
+    //     }else {
+    //         for(int i=0; i < ((IndexNode)currNode).children.size(); i++){
+    //             updateLeafList(((IndexNode)currNode).children.get(i));
+    //         }
+    //     }
+    // }
+
+    LeafNode locateLeaf(int key){
+        LeafNode temp = LeafList.getFirst();
+        for(int i=0; i< LeafList.size()-1;i ++ ){
+            if(key > LeafList.get(i).keys.get(temp.keys.size()-1)){
+                if(key >= LeafList.get(i+1).keys.get(0)){
+                    continue;
+                }else {
+                    return LeafList.get(i);
+                }
             }
         }
+        return LeafList.get(LeafList.size()-1);
     }
 
     private abstract class Node 
     {
         //variables
         ArrayList<Integer> keys;
+        IndexNode parent;
 
         //methods   
         IndexNode split(){
@@ -115,17 +149,17 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
         }
 
         //methods
-        IndexNode split(IndexNode fullNode){
+        IndexNode split(){
             int midIndex = (int)Math.ceil(order/2);
-            IndexNode midNode = new IndexNode(fullNode.keys.get(midIndex));
+            IndexNode midNode = new IndexNode(this.keys.get(midIndex));
             IndexNode childNode = new IndexNode();
             for (int i= midIndex+1; i< order; i++){
-                childNode.keys.add(fullNode.keys.get(i));
-                childNode.children.add(fullNode.children.get(i));
-                fullNode.keys.remove(i);
-                fullNode.children.remove(i);
+                childNode.keys.add(this.keys.get(i));
+                childNode.children.add(this.children.get(i));
+                this.keys.remove(i);
+                this.children.remove(i);
             }
-            fullNode.keys.remove(midIndex);                 //need to deal w reallocating children of midNode when you combine trees
+            this.keys.remove(midIndex);                 
             midNode.children.add(1, childNode);
             return midNode;
         }
@@ -178,10 +212,7 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
     private class LeafNode extends Node
     {
         //variables
-        LeafNode prev;
-        LeafNode next;
         ArrayList<Double> values;
-        IndexNode parent;
 
         //constructors
         LeafNode()
@@ -206,15 +237,15 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
             else return false;
         }
 
-        IndexNode split(LeafNode fullNode){
+        IndexNode split(){
             int midIndex = (int)Math.ceil(order/2);
-            IndexNode midNode = new IndexNode(fullNode.keys.get(midIndex));
+            IndexNode midNode = new IndexNode(this.keys.get(midIndex));
             LeafNode childNode = new LeafNode();
             for (int i= midIndex; i< order; i++){
-                childNode.keys.add(fullNode.keys.get(i));
-                childNode.values.add(fullNode.values.get(i));
-                fullNode.keys.remove(i);
-                fullNode.values.remove(i);
+                childNode.keys.add(this.keys.get(i));
+                childNode.values.add(this.values.get(i));
+                this.keys.remove(i);
+                this.values.remove(i);
             }
             midNode.children.add(1, childNode);
             return midNode;
@@ -224,49 +255,66 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
             return true;
         }
 
-    }
-    private class LeafList
-    {
-        //variables
-        LeafNode head;
-        LeafNode tail;
-
-        //constructors
-        LeafList(int key, double value)
-        {
-            head = new LeafNode(key, value);
-            tail = new LeafNode(key, value);
-        }
-
-        LeafNode get(int index)
-        {
-            LeafNode temp = head;
-            for(int i=0 ; i < index; i++)
-            {
-                temp=temp.next;
-            }
-            return temp;
-        }
-
-        void addLeaf(){
-            LeafNode temp = head;
-            while(temp.next!=null){
-                
-            }
-        }
-
-        //methods
-        LeafNode locateLeaf(int key){
-            LeafNode temp = head;
-            while(key > temp.keys.get(temp.keys.size()-1)){
-                if(key >= temp.next.keys.get(0)){
-                    temp=temp.next;
+        void overfill(int key, double value){
+            for(int i=0; i< keys.size();i++){
+                if(key > keys.get(i)){
+                    continue;
+                }else if(key == keys.get(i)){
+                    values.remove(i);
+                    values.add(i,value);
+                }else {
+                    keys.add(i, key);
+                    values.add(i, value);
                 }
             }
-            return temp;
         }
-
-
+        
 
     }
+
+
+    // private class LeafList
+    // {
+    //     //variables
+    //     LeafNode head;
+    //     LeafNode tail;
+
+    //     //constructors
+    //     LeafList(int key, double value)
+    //     {
+    //         head = new LeafNode(key, value);
+    //         tail = new LeafNode(key, value);
+    //     }
+
+    //     LeafNode get(int index)
+    //     {
+    //         LeafNode temp = head;
+    //         for(int i=0 ; i < index; i++)
+    //         {
+    //             temp=temp.next;
+    //         }
+    //         return temp;
+    //     }
+
+    //     void addLeaf(){
+    //         LeafNode temp = head;
+    //         while(temp.next!=null){
+
+    //         }
+    //     }
+
+    //     //methods
+    //     LeafNode locateLeaf(int key){
+    //         LeafNode temp = head;
+    //         while(key > temp.keys.get(temp.keys.size()-1)){
+    //             if(key >= temp.next.keys.get(0)){
+    //                 temp=temp.next;
+    //             }
+    //         }
+    //         return temp;
+    //     }
+
+
+
+    // }
 }
