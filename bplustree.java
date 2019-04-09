@@ -1,12 +1,11 @@
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.lang.Math;
 
 public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be a superclass of K, which is extended by K
 {
     //variables
-    const int order;
-    IndexNode root;
+    int order;
+    Node root;
 
     //constructors
     public BPlusTree()
@@ -29,9 +28,7 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
      */
     public void Insert (int key, double value)
     {
-        if (locate(key)!=null){
-            
-        }
+
     }
 
     /**
@@ -40,11 +37,6 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
      * @return none
      */
     public void Delete(int key)
-    {
-
-    }
-
-    public Node locate(int key)
     {
 
     }
@@ -75,13 +67,31 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
 
     }
 
+    public void updateLeafList(Node currNode){
+        if(currNode.isLeaf()){
+
+        }else {
+            for(int i=0; i < ((IndexNode)currNode).children.size(); i++){
+                updateLeafList(((IndexNode)currNode).children.get(i));
+            }
+        }
+    }
+
     private abstract class Node 
     {
         //variables
-        List<int> keys;
-        ListIterator<int> keyIterator = null;
+        ArrayList<Integer> keys;
 
-        //methods
+        //methods   
+        IndexNode split(){
+
+        }
+        boolean isFull(){
+            
+        }
+        boolean isLeaf(){
+
+        }
     }
 
 
@@ -90,65 +100,78 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
     private class IndexNode extends Node 
     {
         //variables
-        List<Node> children;
+        ArrayList<Node> children;
 
         //constructors
         IndexNode(){
-            keys = new ArrayList<int>();
+            keys = new ArrayList<Integer>();
             children = new ArrayList<Node>();
         }
-        IndexNode(int key, Node child){
-            keys = new ArrayList<int>();
+
+        IndexNode(int key){
+            keys = new ArrayList<Integer>();
             children = new ArrayList<Node>();
-            children.add(child);
+            keys.add(key);
         }
 
         //methods
-        insertData(int key, double value)
-        {
-            Node childNode = children.get(getChild(key)+1);
-            childNode.insertData(key,value,this);
+        IndexNode split(IndexNode fullNode){
+            int midIndex = (int)Math.ceil(order/2);
+            IndexNode midNode = new IndexNode(fullNode.keys.get(midIndex));
+            IndexNode childNode = new IndexNode();
+            for (int i= midIndex+1; i< order; i++){
+                childNode.keys.add(fullNode.keys.get(i));
+                childNode.children.add(fullNode.children.get(i));
+                fullNode.keys.remove(i);
+                fullNode.children.remove(i);
+            }
+            fullNode.keys.remove(midIndex);                 //need to deal w reallocating children of midNode when you combine trees
+            midNode.children.add(1, childNode);
+            return midNode;
         }
 
-        insertSibling(Node sibling)
-        {
-            if (isFull()){              
-                merge(key, value, parent);
-            }else {                             //if the node has space for new data
-                deleteData(key);                //delete any entry that has the same key (no duplicates)
-                int i = getChild(key);          //retrieve index to insert the values
-                keys.add(i-1, key);               //update keys
-                children.addAll(i, sibling.children);           //update associated values
+        void merge(IndexNode insertNode){
+            int indexInsert=-1;
+            for(int i=0; i< keys.size(); i++){
+                if(insertNode.keys.get(0) < keys.get(i)){                       //if the key < current element, indexInsert is updated to current key
+                    indexInsert=i;
+                }else if (insertNode.keys.get(0) > keys.get(i)){                // if the key > current element, add key in proper location in index node
+                    keys.add(indexInsert+1, insertNode.keys.get(0));            //!!!still need to adjust children
+                    if(insertNode.children.size()==2){
+                        children.add(indexInsert, insertNode.children.get(0));
+                        children.add(indexInsert+1, insertNode.children.get(1));
+                    }else if (insertNode.children.size()==1){
+                        children.add(indexInsert, insertNode.children.get(0));
+                    }
+                    break;
+                }else {                                                         // if the key exists, replace the element
+                    keys.remove(indexInsert+1);
+                    keys.add(indexInsert+1, insertNode.keys.get(0));
+                    children.remove(indexInsert);
+                    children.remove(indexInsert+1);
+                    if(insertNode.children.size()==2){
+                        children.add(indexInsert, insertNode.children.get(0));
+                        children.add(indexInsert+1, insertNode.children.get(1));
+                    }else if (insertNode.children.size()==1){
+                        children.add(indexInsert, insertNode.children.get(0));
+                    }
+                }
             }
         }
-        
-        deleteData(int key)
-        {
-            if(keys.contains(key)){
-                int i=getChild(key);
-                keys.remove(i-1);
-                children.remove(i);
-            }    
+
+
+        boolean isFull(){
+            if(keys.size() >= (order-1)){
+                return true;
+            }
+            else return false;
         }
 
-        /**
-         * This method searches for the index associated with the key
-         * @param key: the target key value
-         * @return the index of an existing value with the key, or the index in which the value would be if it DNE
-         */
-        int getChild(int key){
-            for(int i=0; i< keys.size(); i++){
-                if (get(i) < key) {             //if the element is less than the key, move to next element
-                    continue; 
-                }else return i+1;                 //If the element is in the list or the element is larger than the key, return the index
-        }
-        boolean isFull()
-        {
-            return (keys.size() >= order);
+        boolean isLeaf(){
+            return false;
         }
 
     }
-
 
 
 
@@ -157,70 +180,93 @@ public class BPlusTree <K extends Comparable<? super K>, V> //Comparable must be
         //variables
         LeafNode prev;
         LeafNode next;
-        List<V> values;
-        // List<K> keys;
+        ArrayList<Double> values;
+        IndexNode parent;
 
         //constructors
         LeafNode()
         {
-            values = new ArrayList<double>();
-            keys = new ArrayList<int>();
+            keys = new ArrayList<Integer>();
+            values = new ArrayList<Double>();
+        }
 
+        LeafNode(int key, double value)
+        {
+            keys = new ArrayList<Integer>();
+            values = new ArrayList<Double>();
+            keys.add(key);
+            values.add(value);
         }
 
         //methods
-        void insertData(int key, double value, Node parent)
+        boolean isFull(){
+            if(keys.size() >= (order-1)){
+                return true;
+            }
+            else return false;
+        }
+
+        IndexNode split(LeafNode fullNode){
+            int midIndex = (int)Math.ceil(order/2);
+            IndexNode midNode = new IndexNode(fullNode.keys.get(midIndex));
+            LeafNode childNode = new LeafNode();
+            for (int i= midIndex; i< order; i++){
+                childNode.keys.add(fullNode.keys.get(i));
+                childNode.values.add(fullNode.values.get(i));
+                fullNode.keys.remove(i);
+                fullNode.values.remove(i);
+            }
+            midNode.children.add(1, childNode);
+            return midNode;
+        }
+
+        boolean isLeaf(){
+            return true;
+        }
+
+    }
+    private class LeafList
+    {
+        //variables
+        LeafNode head;
+        LeafNode tail;
+
+        //constructors
+        LeafList(int key, double value)
         {
-            if (isFull()){              
-                merge(key, value, parent);
-            }else {                             //if the node has space for new data
-                deleteData(key);                //delete any entry that has the same key (no duplicates)
-                int i = locate(key);            //retrieve index to insert the values
-                keys.add(i, key);               //update keys
-                values.add(i, value);           //update associated values
+            head = new LeafNode(key, value);
+            tail = new LeafNode(key, value);
+        }
+
+        LeafNode get(int index)
+        {
+            LeafNode temp = head;
+            for(int i=0 ; i < index; i++)
+            {
+                temp=temp.next;
+            }
+            return temp;
+        }
+
+        void addLeaf(){
+            LeafNode temp = head;
+            while(temp.next!=null){
+                
             }
         }
 
-        /**
-         * This method searches for the index associated with the key
-         * @param key: the target key value
-         * @return the index of an existing value with the key, or the index in which the value would be if it DNE
-         */
-        int locate(int key){
-            for(int i=0; i< keys.size(); i++){
-                if (get(i) < key) {             //if the element is less than the key, move to next element
-                    continue; 
-                }else return i;                 //If the element is in the list or the element is larger than the key, return the index
-        }
-        
-        /**
-         * This method deletes the data if it exists, and does nothing otherwise
-         * @param key: the target key value
-         * @return nothing
-         */
-        void deleteData(int key)
-        {
-            if(keys.contains(key)){
-                int i=locate(key);
-                keys.remove(i);
-                values.remove(i);
-            }            
-        }
-
-        boolean isFull()
-        {
-            return (keys.size() >= order);
-        }
-
-        void merge(key, value, parent){
-            int middleIndex = (Math.ceil(order/2)-1);
-            Node splitNode = new LeafNode();
-            for(int i=middleIndex; i< keys.size();i++){
-                splitNode.insertData(keys.get(i), values.get(i));
-                this.deleteData(keys.get(i));
+        //methods
+        LeafNode locateLeaf(int key){
+            LeafNode temp = head;
+            while(key > temp.keys.get(temp.keys.size()-1)){
+                if(key >= temp.next.keys.get(0)){
+                    temp=temp.next;
+                }
             }
-            Node keyPointer = new IndexNode(splitNode.keys.get(0), splitNode);   //create new internal node with key and children(0) pointing to created leafnode
-            parent.insertSibling(keyPointer);                                       //insert internal node into parent
+            return temp;
         }
+
+
+
     }
 }
