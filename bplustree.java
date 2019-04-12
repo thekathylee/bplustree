@@ -71,20 +71,22 @@ public class BPlusTree
             }
             
         }else {
-            // if(root==null){
-            //     LeafNode firstValue = new LeafNode(newRoot);
-            // }
-            // if(root.isLeaf()){
-            //     IndexNode newRoot = new IndexNode(root.keys.get(0));
-            //     LeafNode firstValue = new LeafNode(newRoot);
-            //     LeafList.removeFirst();
-            //     newRoot.children.add(firstValue);
-            //     firstValue.keys.add(key);
-            //     firstValue.values.add(value);
-            //     root = newRoot;
-            // }else {
+//             if(root.isLeaf() && root.keys.size()==0){
+//            	 ((LeafNode)root).overfill(key,value);
+//            	 System.out.println("HAPPEN ONCE, key value should be 3: "+key);
+//             }else if(root.isLeaf()){
+//                 IndexNode newRoot = new IndexNode(root.keys.get(0));
+//                 LeafNode firstValue = new LeafNode(newRoot);
+//                 LeafList.removeFirst();
+//                 firstValue.keys.add(key);
+//                 firstValue.values.add(value);
+//                 newRoot.children.add(firstValue);
+//                 root = newRoot;
+//            	 System.out.println("HAPPEN ONCE, key value should be 4: "+key);
+//
+//             }else {
                 locateLeaf(key).overfill(key,value);
-            // }
+   //          }
 
         }
     }
@@ -240,9 +242,9 @@ public class BPlusTree
     static void writeNode(Node node, String prefix, boolean hasmoresibs) {
         System.out.println();        
         if (hasmoresibs) {
-            System.out.print(prefix + "├── ");
+            System.out.print(prefix + "|-- ");
         } else {
-            System.out.print(prefix + "└── ");
+            System.out.print(prefix + "\\-- ");
         }
         for(int k: node.keys) {
             System.out.print(k+"  ");
@@ -250,7 +252,7 @@ public class BPlusTree
 
         String newprefix = prefix;
         if (hasmoresibs) {
-            newprefix += "│   ";
+            newprefix += "|   ";
         } else {
             newprefix += "    ";
         }
@@ -325,6 +327,7 @@ public class BPlusTree
         //variables
         ArrayList<Integer> keys;
         IndexNode parent;
+        
 
         //methods   
         abstract IndexNode split();
@@ -360,12 +363,14 @@ public class BPlusTree
         IndexNode(){
             keys = new ArrayList<Integer>();
             children = new ArrayList<Node>();
+            parent=null;
         }
 
         IndexNode(int key){
             keys = new ArrayList<Integer>();
             children = new ArrayList<Node>();
             keys.add(key);
+            parent=null;
         }
 
         //methods
@@ -397,6 +402,7 @@ public class BPlusTree
                 midNode.setParent(this.parent);
             } 
             this.setParent(midNode);
+            System.out.println("this.key.0(should be 3): "+ this.keys.get(0)+"\nparent key"+ midNode.keys.get(0));
             midNode.children.add(0, this);                              //placeholder for L child
             childNode.setParent(midNode);
             midNode.children.add(1, childNode);
@@ -482,6 +488,8 @@ public class BPlusTree
             values = new ArrayList<Double>();
             LeafList.add(this);
             updateLeafPointers();
+            parent=null;
+
         }
         LeafNode(IndexNode parent)
         {
@@ -504,11 +512,14 @@ public class BPlusTree
                 keys.remove(midIndex);
                 values.remove(midIndex);
             }
+            this.setParent(midNode);
+            System.out.println("this.key.0(should be 3): "+ this.keys.get(0)+"\nparent key"+ midNode.keys.get(0));
             midNode.children.add(0,null);
             childNode.setParent(midNode);
             midNode.children.add(1, childNode);
             return midNode;
         }
+
 
         /**
          * @param key   the key to be inserted into the new node
@@ -580,8 +591,8 @@ public class BPlusTree
         // System.out.println("child[0]: "+((IndexNode)btree.root).children.get(0).keys.get(0));
         // // System.out.println("child[1]: "+((IndexNode)btree.root).children.get(1).keys.get(0));
         // // System.out.println("child[1b]: "+((IndexNode)btree.root).children.get(1).keys.get(1));
-        // // btree.toString();
-        // System.out.println("\n\n");
+        btree.toString();
+         System.out.println("\n\n");
 
         btree.Insert(6,12.0);
         // System.out.println("root size: "+(btree.root).keys.size());
@@ -596,21 +607,24 @@ public class BPlusTree
         // System.out.println("\n\n");
 
         btree.toString();
+         System.out.println("\n\n");
         btree.Insert(7,22.0);
         btree.toString();
-        System.out.println("root size: "+(btree.root).keys.size());
-        System.out.println("num children: "+((IndexNode)btree.root).children.size());
-        System.out.println("root: "+(btree.root).keys.get(0));
-     //   System.out.println("child[0]: "+((IndexNode)btree.root).children.get(0).keys.get(0));
-        // System.out.println("child[1]: "+((IndexNode)btree.root).children.get(1).keys.get(0));
-        //System.out.println("num children of child[0]: "+((IndexNode)((IndexNode)btree.root).children.get(0)).children.size());
-    //    System.out.println("gchild[0:0]: "+((IndexNode)((IndexNode)btree.root).children.get(0)).children.get(0).keys.get(0));
-     //   System.out.println("gchild[0:1]: "+((IndexNode)((IndexNode)btree.root).children.get(0)).children.get(1).keys.get(0));
-        System.out.println("num children of child[0]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.size());
-        System.out.println("gchild[1:0]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(0).keys.get(0));
-        System.out.println("num children: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.size());
-        System.out.println("gchild[1:1]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(1).keys.get(0));
+//        System.out.println("root size: "+(btree.root).keys.size());
+//        System.out.println("num children: "+((IndexNode)btree.root).children.size());
+//        System.out.println("root: "+(btree.root).keys.get(0));
+//     //   System.out.println("child[0]: "+((IndexNode)btree.root).children.get(0).keys.get(0));
+//        // System.out.println("child[1]: "+((IndexNode)btree.root).children.get(1).keys.get(0));
+//        //System.out.println("num children of child[0]: "+((IndexNode)((IndexNode)btree.root).children.get(0)).children.size());
+//    //    System.out.println("gchild[0:0]: "+((IndexNode)((IndexNode)btree.root).children.get(0)).children.get(0).keys.get(0));
+//     //   System.out.println("gchild[0:1]: "+((IndexNode)((IndexNode)btree.root).children.get(0)).children.get(1).keys.get(0));
+//        System.out.println("num children of child[0]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.size());
+//        System.out.println("gchild[1:0]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(0).keys.get(0));
+//        System.out.println("num children: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.size());
+//        System.out.println("gchild[1:1]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(1).keys.get(0));
         btree.toString();
+        System.out.println("\n\n");
+
         // System.out.println(btree.Search(7));
         // System.out.println(btree.Search(3,5));
         // LeafNode temp = btree.locateLeaf(3);
@@ -635,6 +649,7 @@ public class BPlusTree
         btree.Insert(9,15.0);
         System.out.println("adding 9 now: ");
         btree.toString();
+        System.out.println("\n\n");
         System.out.println("child[1b]: "+((IndexNode)btree.root).children.get(1).keys.size());
      //   System.out.println("child[1b]: "+((IndexNode)btree.root).children.get(1).keys.get(1));
         // System.out.println("plz be 7: "+ ((IndexNode)btree.root).children.get(1).keys.get(1));
