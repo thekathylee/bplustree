@@ -102,7 +102,17 @@ public class BPlusTree
         int index= getIndexOf(key, temp);
         temp.keys.remove(index);
         temp.values.remove(index);
-        if(temp.next.keys.size()>1 && temp.parent == temp.next.parent){
+        boolean Rsib=false; 
+        boolean Lsib=false;
+        
+        /**
+         * Removing the key
+         * 3 Main Cases:
+         * 1. The right sibling has more than 1 key in which we borrow that key and remove in-between indexNode key at the parent level
+         * 2. The left sibling has more than 1 key in which we borrow that key and remove in-between indexNode key at the parent level
+         * 3. Neither siblings have extra keys in which we delete the desired key ("merge with sibling") and also the in-between key at the parent level
+         */
+        if(temp.next.keys.size()>1 && rsib(temp)){
             temp.keys.add(temp.next.keys.get(0));
             temp.values.add(temp.next.values.get(0));
             temp.next.keys.remove(0);
@@ -110,7 +120,7 @@ public class BPlusTree
             index = getIndexOf(temp.keys.get(0), temp.parent);
             temp.parent.keys.remove(index);
             temp.parent.keys.add(index, temp.next.keys.get(0));
-        } else if(temp.parent == temp.prev.parent && temp.prev.keys.size()>1){
+        } else if(temp.prev.keys.size()>1 && lsib(temp)){
             int prevSize=temp.prev.keys.size();
             temp.keys.add(temp.prev.keys.get(prevSize-1));
             temp.values.add(temp.prev.values.get(prevSize-1));
@@ -120,21 +130,51 @@ public class BPlusTree
             temp.parent.keys.remove(index);
             temp.parent.keys.add(index, temp.keys.get(0));
 
-        } else if(temp.next.keys.size()==1){                 //if Rsib/Lsib == 1, delete key and remove in-between key in parent (index i-1, unless i=0 then index 0)
+        } else if((Rsib && temp.next.keys.size()<=1) ||(Lsib && temp.prev.keys.size() <= 1)){       //if Rsib/Lsib == 1, delete key and remove in-between key in parent (index i-1, unless i=0 then index 0)
             if(index==0) temp.parent.keys.remove(0);
             else temp.parent.keys.remove(index-1);
+            temp.keys.remove(index);
+            temp.values.remove(index);
         }
+    }
+        public void fixDeficient(IndexNode tempParent) {
+        //Dealing with deficient Nodes
+        if(tempParent.parent==null) {
+        	System.out.println("Deficient node with no parent node"); 	//deal with this later
+        }
+        else if (tempParent.keys.size()<=0) {							//if parent is deficient
+        	int parentBorrowIndex=getChildIndex(tempParent, tempParent.parent);
+        	if(tempParent.parent.children.size() > 1){					//at least 1 uncle
+        		Node uncle = null;
+        		int uncleIndex=0;
+            	if(rsib(tempParent) && tempParent.parent.children.get(parentBorrowIndex+1).keys.size() > 1) {			//if there is an abundant right uncle, we replace parent with parent.children.get(parentIndex);
+            		parentBorrowIndex =getChildIndex(tempParent, tempParent.parent);									//parentBorrowIndex: Index of key to replace in gparent
+            		LeafNode newRChild = LMostofRTree(parentBorrowIndex);
+            		tempParent.children.add(newRChild);
+            		uncle = tempParent.parent.children.get(parentBorrowIndex+1);
+                	tempParent.keys.add(tempParent.parent.keys.get(parentBorrowIndex));			//move grandparent key to deficient parent node
+                	tempParent.parent.keys.remove(parentBorrowIndex);
+                	tempParent.parent.keys.add(parentBorrowIndex, uncle.keys.get(uncleIndex));
+                	uncle.keys.remove(uncleIndex);
+            	}
+            	else if (lsib(tempParent) && tempParent.parent.children.get(parentBorrowIndex-1).keys.size() > 1) {		//if there is an abundant left uncle, we replace parent with parent.children.get(parentIndex-1);
+            		parentBorrowIndex =getChildIndex(tempParent, tempParent.parent)-1;									//parentBorrowIndex: Index of key to replace in gparent
+            		LeafNode newLChild = LMostofRTree(parentBorrowIndex);
+            		tempParent.children.add(0,newLChild);
+            		uncle = tempParent.parent.children.get(parentBorrowIndex);
+            		uncleIndex=(uncle.keys.size()-1);
+                	tempParent.keys.add(tempParent.parent.keys.get(parentBorrowIndex));			//move grandparent key to deficient parent node
+                	tempParent.parent.keys.remove(parentBorrowIndex);
+                	tempParent.parent.keys.add(parentBorrowIndex, uncle.keys.get(uncleIndex));
+                	uncle.keys.remove(uncleIndex);
+            	}else {																			//if there's at least 1 uncle but there is no abundant uncle, merge deficient node, in-between parent key, and uncle
+            		tempParent.keys.add();
+            	}
+
+        	}
 
 
-
-
-
-
-
-
-
-
-
+        }
 
 
         // 
@@ -161,6 +201,61 @@ public class BPlusTree
         // }
 
 
+    }
+    
+    //Setting booleans Rsib and Lsib to check existence of siblings
+    public boolean rsib(Node temp) {
+    	if(temp.isLeaf()) {
+	        if(temp.parent == ((LeafNode)temp).next.parent) {
+	        	return true;
+	        }
+    	}else {
+    		int index = getChildIndex(temp,temp.parent);
+    		if(index < 0) {
+    			System.out.println("parent linking is corrupted. within rsib(), temp wasn't found within temp.parent");
+    		}
+    		else if(temp.parent.children.size()>= index+1) {
+    			return true;
+    		}
+    	}
+    	return false;
+    }
+    public boolean lsib(Node temp) {
+    	if(temp.isLeaf()) {
+	        if(temp.parent == ((LeafNode)temp).prev.parent) {
+	        	return true;
+	        }
+    	}else {
+    		int index = getChildIndex(temp,temp.parent);
+    		if(index < 0) {
+    			System.out.println("parent linking is corrupted. within lsib(), temp wasn't found within temp.parent");
+    		}
+    		else if(index > 0) {
+    			return true;
+    		}
+    	}
+    	return false;
+    }
+
+    public LeafNode RMostofLTree(int rootIndex) {
+    	Node temp = ((IndexNode)root).children.get(rootIndex-1);
+    	while(!temp.isLeaf()) {
+    		temp = ((IndexNode)temp).children.get(((IndexNode)temp).children.size()-1);
+    	}
+    	LeafNode desiredNode= new LeafNode(temp.keys.get(temp.keys.size()-1), ((LeafNode)temp).values.get(((LeafNode)temp).values.size()-1));
+    	temp.keys.remove(temp.keys.size()-1);
+    	((LeafNode)temp).values.remove(((LeafNode)temp).values.size()-1);
+    	return desiredNode;
+    }
+    public LeafNode LMostofRTree(int rootIndex) {
+    	Node temp = ((IndexNode)root).children.get(rootIndex+1);
+    	while(!temp.isLeaf()) {
+    		temp = ((IndexNode)temp).children.get(0);
+    	}
+    	LeafNode desiredNode= new LeafNode(temp.keys.get(0), ((LeafNode)temp).values.get(0));
+    	temp.keys.remove(0);
+    	((LeafNode)temp).values.remove(0);
+    	return desiredNode;
     }
 
     /**
@@ -295,6 +390,17 @@ public class BPlusTree
         for(int i = 0; i < node.keys.size(); i++) {
             if(node.keys.get(i) == key){
                 index = i;
+                return index;
+            }
+        }
+        return index;
+    }
+    public int getChildIndex(Node child, IndexNode parent){
+        int index = -1;
+        for(int i = 0; i < parent.children.size(); i++) {
+            if(parent.children.get(i) == child){
+                index = i;
+                return index;
             }
         }
         return index;
@@ -498,6 +604,12 @@ public class BPlusTree
             LeafList.add(this);
             updateLeafPointers();
             setParent(parent);
+        }
+        
+        LeafNode(int key, double value)				//this constructor doesn't add itself to LeafList or maintain relationships. This is for temporary storage of LeafNodes
+        {
+            keys = new ArrayList<Integer>();
+            values = new ArrayList<Double>();
         }
 
         //methods
