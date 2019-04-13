@@ -32,8 +32,8 @@ public class BPlusTree
      */
     public void Insert (int key, double value)
     {
-        if(locateLeaf(key).isFull()){
-            LeafNode currLeaf= locateLeaf(key);
+        LeafNode currLeaf= LeafList.get(locateLeaf(key));
+        if(currLeaf.isFull()){
             currLeaf.overfill(key, value);
             System.out.println("currLeaf key 1: "+ currLeaf.keys.get(0));
             System.out.println("currLeaf key 1 should now be 1: "+ currLeaf.keys.get(1));
@@ -47,19 +47,20 @@ public class BPlusTree
                     midNode.children.add(0,currLeaf);
                     root=midNode;
                 }else {
+                    System.out.println("mom key (should be 6): " + mom.keys.get(0) +"\n mom size(should be 2): "+ mom.keys.size() );
                     if(midNode.children.get(0)!=null) midNode.children.get(0).setParent(mom);
                     if(midNode.children.get(1)!=null) midNode.children.get(1).setParent(mom);
                     mom.merge(midNode);
                     System.out.println("mom key: "+ mom.keys.get(0)+"\nmom keys size: "+mom.keys.size()+"\nmom key2: "+ mom.keys.get(1));
                     while(mom.keys.size()>order){
                         midNode=mom.split();
-                        mom.setParent(midNode);
+                        //mom.setParent(midNode);
                         if (midNode.parent == null){
                             root = midNode;
                             return;
                         }else {
                             mom = mom.parent;
-                            System.out.println("size of midNode: " +midNode.keys.size() );
+                            System.out.println("mom's new key : " +mom.keys.get(0));
                             mom.merge(midNode);
                         }
                         System.out.println("mid node root: " + midNode.keys.get(0) + "\nnum children: "+midNode.children.size());
@@ -85,7 +86,7 @@ public class BPlusTree
 //            	 System.out.println("HAPPEN ONCE, key value should be 4: "+key);
 //
 //             }else {
-                locateLeaf(key).overfill(key,value);
+                LeafList.get(locateLeaf(key)).overfill(key,value);
    //          }
 
         }
@@ -98,7 +99,7 @@ public class BPlusTree
      */
     public void Delete(int key)
     {
-        LeafNode temp = locateLeaf(key);
+        LeafNode temp = LeafList.get(locateLeaf(key));
         int index= getIndexOf(key, temp);
         temp.keys.remove(index);
         temp.values.remove(index);
@@ -136,6 +137,7 @@ public class BPlusTree
             temp.keys.remove(index);
             temp.values.remove(index);
         }
+        fixDeficient(temp.parent);
     }
         public void fixDeficient(IndexNode tempParent) {
         //Dealing with deficient Nodes
@@ -143,32 +145,56 @@ public class BPlusTree
         	System.out.println("Deficient node with no parent node"); 	//deal with this later
         }
         else if (tempParent.keys.size()<=0) {							//if parent is deficient
-        	int parentBorrowIndex=getChildIndex(tempParent, tempParent.parent);
+        	int parentIndex=getChildIndex(tempParent, tempParent.parent);
         	if(tempParent.parent.children.size() > 1){					//at least 1 uncle
         		Node uncle = null;
         		int uncleIndex=0;
-            	if(rsib(tempParent) && tempParent.parent.children.get(parentBorrowIndex+1).keys.size() > 1) {			//if there is an abundant right uncle, we replace parent with parent.children.get(parentIndex);
-            		parentBorrowIndex =getChildIndex(tempParent, tempParent.parent);									//parentBorrowIndex: Index of key to replace in gparent
-            		LeafNode newRChild = LMostofRTree(parentBorrowIndex);
+            	if(rsib(tempParent) && tempParent.parent.children.get(parentIndex+1).keys.size() > 1) {			//if there is an abundant right uncle, we replace parent with parent.children.get(parentIndex);
+            		LeafNode newRChild = LMostofRTree(parentIndex);
             		tempParent.children.add(newRChild);
-            		uncle = tempParent.parent.children.get(parentBorrowIndex+1);
-                	tempParent.keys.add(tempParent.parent.keys.get(parentBorrowIndex));			//move grandparent key to deficient parent node
-                	tempParent.parent.keys.remove(parentBorrowIndex);
-                	tempParent.parent.keys.add(parentBorrowIndex, uncle.keys.get(uncleIndex));
+            		uncle = tempParent.parent.children.get(parentIndex+1);
+                	tempParent.keys.add(tempParent.parent.keys.get(parentIndex));			//move grandparent key to deficient parent node
+                	tempParent.parent.keys.remove(parentIndex);
+                	tempParent.parent.keys.add(parentIndex, uncle.keys.get(uncleIndex));
                 	uncle.keys.remove(uncleIndex);
             	}
-            	else if (lsib(tempParent) && tempParent.parent.children.get(parentBorrowIndex-1).keys.size() > 1) {		//if there is an abundant left uncle, we replace parent with parent.children.get(parentIndex-1);
-            		parentBorrowIndex =getChildIndex(tempParent, tempParent.parent)-1;									//parentBorrowIndex: Index of key to replace in gparent
-            		LeafNode newLChild = LMostofRTree(parentBorrowIndex);
+            	else if (lsib(tempParent) && tempParent.parent.children.get(parentIndex-1).keys.size() > 1) {		//if there is an abundant left uncle, we replace parent with parent.children.get(parentIndex-1);
+            		int modifyIndex=0;
+            		if(parentIndex!=0) modifyIndex=parentIndex-1;
+            		LeafNode newLChild = LMostofRTree(parentIndex);
             		tempParent.children.add(0,newLChild);
-            		uncle = tempParent.parent.children.get(parentBorrowIndex);
+            		uncle = tempParent.parent.children.get(parentIndex-1);
             		uncleIndex=(uncle.keys.size()-1);
-                	tempParent.keys.add(tempParent.parent.keys.get(parentBorrowIndex));			//move grandparent key to deficient parent node
-                	tempParent.parent.keys.remove(parentBorrowIndex);
-                	tempParent.parent.keys.add(parentBorrowIndex, uncle.keys.get(uncleIndex));
+                	tempParent.keys.add(tempParent.parent.keys.get(modifyIndex));			//move grandparent key to deficient parent node
+                	tempParent.parent.keys.remove(modifyIndex);
+                	tempParent.parent.keys.add(parentIndex, uncle.keys.get(modifyIndex));
                 	uncle.keys.remove(uncleIndex);
             	}else {																			//if there's at least 1 uncle but there is no abundant uncle, merge deficient node, in-between parent key, and uncle
-            		tempParent.keys.add();
+        			int modifyIndex =0;
+        			if(rsib(tempParent)) {
+                		uncle = tempParent.parent.children.get(parentIndex+1);
+                		uncleIndex=parentIndex+1;
+        			}
+        			else if(lsib(tempParent)) {
+                		if(parentIndex!=0) modifyIndex=parentIndex-1;
+                		uncle = tempParent.parent.children.get(parentIndex-1);
+                		uncleIndex=parentIndex-1;
+            		}
+            		tempParent.keys.add(tempParent.parent.keys.get(modifyIndex));
+            		tempParent.parent.keys.remove(modifyIndex);
+            		for(int k: uncle.keys) {
+            			tempParent.keys.add(k);
+            		}
+            		for(Node n: ((IndexNode)uncle).children) {
+            			tempParent.children.add(n);
+            		}
+            		tempParent.children.remove(uncleIndex);
+            		if(tempParent.parent.keys.size()<=0) {
+            			tempParent.parent=null;
+            			root=tempParent;
+            		}
+            		
+            		
             	}
 
         	}
@@ -265,7 +291,7 @@ public class BPlusTree
      */
     public double Search(int key)
     {
-        LeafNode temp = locateLeaf(key);
+        LeafNode temp = LeafList.get(locateLeaf(key));
         int index=-1;
         for(int i=0; i < temp.keys.size();i++){
             if(temp.keys.get(i)==key){
@@ -284,7 +310,7 @@ public class BPlusTree
      */
     public String Search(int key1, int key2)
     {
-        LeafNode temp = locateLeaf(key1);
+        LeafNode temp = LeafList.get(locateLeaf(key1));
         String str="";
         str+=extract(key1, key2, temp);
         int currVal=temp.keys.get(temp.keys.size()-1);
@@ -362,25 +388,30 @@ public class BPlusTree
      * @param key The target key
      * @return The LeafNode in which the key exists (or would exist if the key is not contained)
      */
-    public LeafNode locateLeaf(int key){
+    public int locateLeaf(int key){
         if(LeafList.size()==0){
             root = new LeafNode();
-            return (LeafNode)root;
+            return 0;
         }else {
             LeafNode temp = LeafList.getFirst();
-            for(int i=0; i< LeafList.size()-1;i ++ ){
+            int i=0;
+            for(i=0; i< LeafList.size()-1;i ++ ){
                 temp=LeafList.get(i);
                 if(key > temp.keys.get(temp.keys.size()-1)){ //if key > last element of ith element of leaflist
                     if(key >= LeafList.get(i+1).keys.get(0)){           //if key >= first element of i+1 th element of leaflist
-                        continue;
+                        if(i+1 == LeafList.size()-1) {
+                        	return i+1;
+                        }else {
+                        	continue;
+                        }
                     }else {
-                        return LeafList.get(i);
+                        return i;
                     }
                 }else {                                                //if key <= last element of ith element
-                    return LeafList.get(i);
+                    return i;
                 }
             }
-            return LeafList.get(LeafList.size()-1);
+            return LeafList.size()-1;
         }
     }
 
@@ -504,12 +535,13 @@ public class BPlusTree
                 children.remove(order);
             }
             keys.remove(midIndex);   
-            if(this.parent!=null){
-                midNode.setParent(this.parent);
+            if(parent!=null){
+                midNode.setParent(parent);
             } 
-            this.setParent(midNode);
-            System.out.println("this.key.0(should be 3): "+ this.keys.get(0)+"\nparent key"+ midNode.keys.get(0));
+            //setParent(midNode);
             midNode.children.add(0, this);                              //placeholder for L child
+            if(this.parent!=null) this.parent.children.remove(getChildIndex(this, this.parent));
+            System.out.println("this.key.0(should be 3): "+ keys.get(0)+"\nparent key: "+ midNode.keys.get(0) + "\nparent key child count: "+ midNode.children.size());
             childNode.setParent(midNode);
             midNode.children.add(1, childNode);
             return midNode;
@@ -531,11 +563,11 @@ public class BPlusTree
                         System.out.println("init, index insert is: " + indexInsert);
 
                     }else if(insertNode.keys.get(0) == keys.get(i)){
-                        keys.remove(i);
                         System.out.println("insertNode size: "+ insertNode.keys.size());
                         keys.add(i, insertNode.keys.get(0));
+                        keys.remove(i+1);
                         children.remove(i);
-                        children.remove(i+1);
+                        children.remove(i);
                         for(int j=0; j<insertNode.children.size(); j++){
                             children.add(i+j, insertNode.children.get(i));
                         }   
@@ -547,10 +579,15 @@ public class BPlusTree
                 }
                 keys.add(indexInsert+1, insertNode.keys.get(0));
                 System.out.println("key inserted:" +keys.get(indexInsert+1));
+                System.out.println("NUM CHILDREN: "+insertNode.children.size());
                 for(int i=0; i<insertNode.children.size();i++){
                     if(insertNode.children.get(i)==null){
                     }else {
-                        children.add(indexInsert+1+i, insertNode.children.get(i));
+                    	if(insertNode.children.get(i).keys.get(0) < insertNode.keys.get(0)) {
+                            children.add(indexInsert+1, insertNode.children.get(i));
+                    	}else {
+                            children.add(indexInsert+2, insertNode.children.get(i));
+                    	}
                         System.out.println("Children count of temp: "+ children.size());
                         System.out.println("key count of temp: "+ keys.size());
 
@@ -597,11 +634,11 @@ public class BPlusTree
             parent=null;
 
         }
-        LeafNode(IndexNode parent)
+        LeafNode(int leafIndex, IndexNode parent)
         {
             keys = new ArrayList<Integer>();
             values = new ArrayList<Double>();
-            LeafList.add(this);
+            LeafList.add(leafIndex, this);
             updateLeafPointers();
             setParent(parent);
         }
@@ -616,8 +653,9 @@ public class BPlusTree
 
         IndexNode split(){
             int midIndex = (int)Math.ceil(order/2);
+            int leafIndex = locateLeaf(keys.get(0));
             IndexNode midNode = new IndexNode(keys.get(midIndex));
-            LeafNode childNode = new LeafNode(midNode);
+            LeafNode childNode = new LeafNode(leafIndex + 1,midNode);
             for (int i= midIndex; i<= order; i++){
                 childNode.keys.add(keys.get(midIndex));
                 childNode.values.add(values.get(midIndex));
@@ -693,6 +731,9 @@ public class BPlusTree
         BPlusTree btree = new BPlusTree();
         btree.Initialize(2);
         btree.Insert(3,10.0);
+        for(LeafNode n :btree.LeafList) {
+        	System.out.println("key of leaf: "+ n.keys.get(0));
+        }
         btree.Insert(4,11.0);
         // System.out.println("root: "+(btree.root).keys.get(0));
         // System.out.println("root[b]: "+(btree.root).keys.get(1)+"\n\n");
@@ -705,7 +746,9 @@ public class BPlusTree
         // // System.out.println("child[1b]: "+((IndexNode)btree.root).children.get(1).keys.get(1));
         btree.toString();
          System.out.println("\n\n");
-
+         for(LeafNode n :btree.LeafList) {
+         	System.out.println("key of leaf: "+ n.keys.get(0));
+         }
         btree.Insert(6,12.0);
         // System.out.println("root size: "+(btree.root).keys.size());
         // System.out.println("num children: "+(((IndexNode)btree.root).children.size()));
@@ -719,9 +762,15 @@ public class BPlusTree
         // System.out.println("\n\n");
 
         btree.toString();
+        for(LeafNode n :btree.LeafList) {
+        	System.out.println("key of leaf: "+ n.keys.get(0));
+        }
          System.out.println("\n\n");
         btree.Insert(7,22.0);
         btree.toString();
+        for(LeafNode n :btree.LeafList) {
+        	System.out.println("key of leaf: "+ n.keys.get(0));
+        }
 //        System.out.println("root size: "+(btree.root).keys.size());
 //        System.out.println("num children: "+((IndexNode)btree.root).children.size());
 //        System.out.println("root: "+(btree.root).keys.get(0));
@@ -734,9 +783,10 @@ public class BPlusTree
 //        System.out.println("gchild[1:0]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(0).keys.get(0));
 //        System.out.println("num children: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.size());
 //        System.out.println("gchild[1:1]: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.get(1).keys.get(0));
-        btree.toString();
         System.out.println("\n\n");
-
+        for(LeafNode n :btree.LeafList) {
+        	System.out.println("key of leaf: "+ n.keys.get(0));
+        }
         // System.out.println(btree.Search(7));
         // System.out.println(btree.Search(3,5));
         // LeafNode temp = btree.locateLeaf(3);
@@ -758,9 +808,15 @@ public class BPlusTree
        // btree.toString();
         btree.Insert(2,12.0);
         btree.toString();
+        for(LeafNode n :btree.LeafList) {
+        	System.out.println("key of leaf: "+ n.keys.get(0));
+        }
         btree.Insert(9,15.0);
         System.out.println("adding 9 now: ");
         btree.toString();
+        for(LeafNode n :btree.LeafList) {
+        	System.out.println("key of leaf: "+ n.keys.get(0));
+        }
         System.out.println("\n\n");
         System.out.println("child[1b]: "+((IndexNode)btree.root).children.get(1).keys.size());
      //   System.out.println("child[1b]: "+((IndexNode)btree.root).children.get(1).keys.get(1));
@@ -769,6 +825,21 @@ public class BPlusTree
         System.out.println("plz be 1: "+ (btree.root.keys.size()));
         btree.Insert(1,12.0);
         btree.toString();
+        System.out.println();
+        for(LeafNode n :btree.LeafList) {
+        	System.out.println("key of leaf: "+ n.keys.get(0));
+        }
+        btree.Insert(11,32.0);
+        btree.toString();
+        btree.Insert(8,27.0);
+        btree.toString();
+        System.out.println();
+        btree.Insert(13,237.0);
+        btree.toString();
+        System.out.println();
+        btree.Insert(20,527.0);
+        btree.toString();
+        System.out.println();
 
        
        // System.out.println("size of child 1: "+((IndexNode)((IndexNode)btree.root).children.get(1)).children.size());
