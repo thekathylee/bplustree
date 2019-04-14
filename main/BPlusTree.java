@@ -58,7 +58,6 @@ public class BPlusTree
                     mom.merge(midNode);
                     while(mom.keys.size()>order){
                         midNode=mom.split();
-                        //mom.setParent(midNode);
                         if (midNode.getParent() == null){
                             root = midNode;
                             return;
@@ -73,23 +72,7 @@ public class BPlusTree
             }
             
         }else {
-//             if(root.isLeaf() && root.keys.size()==0){
-//            	 ((LeafNode)root).overfill(key,value);
-//            	 System.out.println("HAPPEN ONCE, key value should be 3: "+key);
-//             }else if(root.isLeaf()){
-//                 IndexNode newRoot = new IndexNode(root.keys.get(0));
-//                 LeafNode firstValue = new LeafNode(newRoot);
-//                 LeafList.removeFirst();
-//                 firstValue.keys.add(key);
-//                 firstValue.values.add(value);
-//                 newRoot.children.add(firstValue);
-//                 root = newRoot;
-//            	 System.out.println("HAPPEN ONCE, key value should be 4: "+key);
-//
-//             }else {
                 LeafList.get(locateLeaf(key)).overfill(key,value);
-   //          }
-
         }
     }
     
@@ -107,9 +90,9 @@ public class BPlusTree
         System.out.println("***** Delete( "+ key+" ); called *****");
     	int tempIndex=locateLeaf(key);
         LeafNode temp = LeafList.get(tempIndex);
-        int index= getIndexOf(key, temp);
-        temp.keys.remove(index);
-        temp.values.remove(index);
+        int index = getChildIndex(temp, temp.getParent());
+        temp.values.remove(getIndexOf(key, temp));
+        temp.keys.remove(getIndexOf(key, temp));
         if(temp.keys.size()>0) {
         	return;
         }
@@ -123,15 +106,14 @@ public class BPlusTree
          */
     	if(temp.getParent().children.size() > 1){					//at least 1 sibling
     		if (rsib(temp) && abundant(temp.next)){						//case 1: right sibling is abundant
-    	        	System.out.println("Case 1: Abundant right sibling starting w key: "+ temp.next.keys.get(0));
-    	            temp.keys.add(temp.next.keys.get(0));
-    	            temp.values.add(temp.next.values.get(0));
-    	            index = getIndexOf(temp.keys.get(0), temp.getParent());
-    	            temp.getParent().keys.remove(index);
-    	            temp.getParent().keys.add(index, temp.next.keys.get(0));
-    	            temp.next.keys.remove(0);
-    	            temp.next.values.remove(0);
-//    	            LeafList.remove(locateLeaf(key)+1);
+	        	System.out.println("Case 1: Abundant right sibling starting w key: "+ temp.next.keys.get(0));
+	            temp.keys.add(temp.next.keys.get(0));
+	            temp.values.add(temp.next.values.get(0));
+	            index = getChildIndex(temp, temp.getParent());
+	            temp.getParent().keys.remove(index);
+	            temp.getParent().keys.add(index, temp.next.keys.get(1));
+	            temp.next.keys.remove(0);
+	            temp.next.values.remove(0);
 	        } else if(lsib(temp) && abundant(temp.prev)){				//case 2: left sibling is abundant
 	        	System.out.println("Case 2: Abundant left sibling starting w key: "+ temp.prev.keys.get(0));
 	            int prevSize=temp.prev.keys.size();
@@ -143,7 +125,6 @@ public class BPlusTree
 	            if(index!=0) {
 		            temp.getParent().keys.remove(index-1);
 		            temp.getParent().keys.add(index-1, temp.keys.get(0));
-//		            LeafList.remove(locateLeaf(key)-1);
 	            }
 
 	        } else {       //if Rsib/Lsib == 1, delete key and remove in-between key in parent (index i-1, unless i=0 then index 0)
@@ -158,11 +139,13 @@ public class BPlusTree
 	            deleteFromLeafList(tempIndex);
 	            temp.getParent().children.remove(index);
 	        }
+	        System.out.println("index: "+ index);
+
 	        fixDeficit(temp.getParent(), index);
     	}
     }
         public void fixDeficit(IndexNode tempParent, int removedIndex) {
-        //Dealing with deficient Nodes
+        	
         if(tempParent.getParent()==null) {
         	System.out.println("Deficient node with no parent node"); 	//deal with this later
         }
@@ -173,21 +156,39 @@ public class BPlusTree
         		int uncleIndex=0;
             	if(rsib(tempParent) && tempParent.getParent().children.get(parentIndex+1).keys.size() > 1) {		//if there is an abundant right uncle, we replace parent with parent.children.get(parentIndex);
             			System.out.println("In fixDeficit function, case 1: There's an abundant right uncle");
-            			int key =LMostofRTree(tempParent.getParent(), parentIndex);
-                		LeafNode newChild = LeafList.get(locateLeaf(key));
-//                		newChild.parent.keys.remove(index-1); //unless -, them remove(0)
-                		newChild.setParent(tempParent);
-                		tempParent.children.add(removedIndex, newChild);
+                		int modifyIndex=0;
+                		if(parentIndex!=0) modifyIndex=parentIndex-1;
+                		int key =LMostofRTree(tempParent.getParent(), parentIndex);
+						LeafNode newChild = LeafList.get(locateLeaf(key));
+						System.out.println("LeafList index of newChild: "+ locateLeaf(key));
+						tempParent.getParent().keys.remove(parentIndex);
+                		tempParent.getParent().keys.add(parentIndex,newChild.keys.get(0));				//set parents key to that of the Left most child of right subtree
+						newChild.getParent().children.remove(0);							//remove newChild from it's parent
+                		newChild.setParent(tempParent);													//set replacements parent as deficient parent
+                		tempParent.children.add(newChild);												//add replacement to parent's childlist
+                		System.out.println("added "+ newChild.keys.get(0) + " to tempParent");
                 		if(newChild.keys.size()==1) {
+                			System.out.println("newchild's key: "+ key);
                     		deleteFromLeafList(locateLeaf(key));
-                    	}
-                    	newChild.keys.remove(0);											//remove the key of leftmost node of r subtree
-                    	((LeafNode)newChild).values.remove(0);				//remove the value of leftmost node of r subtree
+                    	}else {
+							newChild.keys.remove(0);
+							newChild.values.remove(01);
+						}
                 		uncle = tempParent.getParent().children.get(parentIndex+1);
-                    	tempParent.keys.add(tempParent.getParent().keys.get(parentIndex));			//move grandparent key to deficient parent node
-                    	tempParent.getParent().keys.remove(parentIndex);
-                    	tempParent.getParent().keys.add(parentIndex-1, uncle.keys.get(uncleIndex));
-                    	uncle.keys.remove(uncleIndex);
+                		if(removedIndex==0) {
+                        	tempParent.keys.add(tempParent.children.get(removedIndex+1).keys.get(0));			//If the first key was removed, replace parent key w right sibling
+                		}else {
+                        	tempParent.keys.add(tempParent.getParent().keys.get(modifyIndex));			//else, replace parent key with grandparent
+                		}
+						uncle.keys.remove(uncleIndex);
+						while (tempParent.getParent()!=null && removedIndex==0) {
+							removedIndex=getChildIndex(tempParent, tempParent.getParent());
+							if(removedIndex==0) {
+	                        	tempParent.getParent().keys.remove(0);
+	                        	tempParent.getParent().keys.add(0,tempParent.getParent().children.get(removedIndex+1).keys.get(0));			//If the first key was removed, replace parent key w right sibling
+							}
+							tempParent=tempParent.getParent();
+						}
             	}
             	else if (lsib(tempParent) && tempParent.getParent().children.get(parentIndex-1).keys.size() > 1) {		//if there is an abundant left uncle, we replace parent with parent.children.get(parentIndex-1);
             			System.out.println("In fixDeficit function, case 2: There's an abundant left uncle");
@@ -197,28 +198,31 @@ public class BPlusTree
                 		LeafNode newChild = LeafList.get(locateLeaf(key));
                 		tempParent.getParent().keys.remove(tempParent.getParent().keys.size()-1);
                 		tempParent.getParent().keys.add(newChild.keys.get(newChild.keys.size()-1));
-                		System.out.println("adding this key to parent: "+newChild.keys.get(newChild.keys.size()-1));
-                		System.out.println("Is newChild a leafnode?" + newChild.isLeaf());
-                		System.out.println("Right most key of L subtree: "+ newChild.keys.get(0));
-                		System.out.println("newChild's size : "+ newChild.keys.size());
-                		System.out.println("newChild's parent : "+ newChild.getParent().keys.get(0));
                 		newChild.getParent().children.remove(newChild.getParent().children.size()-1);							//remove newLChild from it's parent
-//                		tempParent.children.remove(modifyIndex);
                 		newChild.setParent(tempParent);
-                		tempParent.children.add(removedIndex,newChild);
+                		tempParent.children.add(0,newChild);
                 		if(newChild.keys.size()==1) {
                     		deleteFromLeafList(locateLeaf(key));
-                    	}
+                    	}else {
+							newChild.keys.remove(newChild.keys.size()-1);
+							newChild.values.remove(newChild.keys.size()-1);
+						}
                 		uncle = tempParent.getParent().children.get(parentIndex-1);
                 		uncleIndex=(uncle.keys.size()-1);
-                		if(removedIndex==0) {
-                        	tempParent.keys.add(tempParent.children.get(removedIndex+1).keys.get(0));			//move grandparent key to deficient parent node
-                		}else {
-                        	tempParent.keys.add(tempParent.getParent().keys.get(modifyIndex));			//move grandparent key to deficient parent node
-                		}
-//                    	tempParent.parent.keys.remove(modifyIndex);
-//                    	tempParent.parent.keys.add(parentIndex-1, uncle.keys.get(modifyIndex));
+//                		if(removedIndex==0) {
+//                        	tempParent.keys.add(tempParent.children.get(removedIndex+1).keys.get(0));			//If the first key was removed, replace parent key w right sibling
+//                		}else {
+                        	tempParent.keys.add(tempParent.children.get(removedIndex).keys.get(0));			//else, replace parent key with grandparent
+//                		}
                     	uncle.keys.remove(uncleIndex);
+						while (tempParent.getParent()!=null && removedIndex==0) {
+							removedIndex=getChildIndex(tempParent, tempParent.getParent());
+							if(removedIndex==0) {
+	                        	tempParent.getParent().keys.remove(0);
+	                        	tempParent.getParent().keys.add(0,tempParent.getParent().children.get(removedIndex+1).keys.get(0));			//If the first key was removed, replace parent key w right sibling
+							}
+							tempParent=tempParent.getParent();
+						}
             	}else {																			//if there's at least 1 uncle but there is no abundant uncle, merge deficient node, in-between parent key, and uncle
         			System.out.println("In fixDeficit function, case 3: there are no abundant uncles");
         			System.out.println("tempParent currently has "+tempParent.children.size()+"child(ren)");
@@ -253,45 +257,11 @@ public class BPlusTree
             		tempParent.getParent().children.remove(uncleIndex);
         			System.out.println("size of tempParent.parent: "+tempParent.getParent().keys.size());
             		if(tempParent.getParent().keys.size()<=0) {
-//            			System.out.println("no root");
-//            			tempParent.parent=null;
-//            			root=tempParent;
             			fixDeficit(tempParent.getParent(), modifyIndex);
-            		}
-            		
-            		
+            		}          		
             	}
-
         	}
-
-
         }
-
-
-        // 
-        // if(!parent.isFull()){
-        //     parent.key = gparent.key;
-        //     if(uncle.size() > 1){
-        //         gparent.key = uncle.key;
-        //         //while loop to handle when cousin is index node
-        //         LeafNode temp = uncle.children.get(0);
-        //         uncle.children.remove(0);
-        //         parent.children.add(temp);
-        //     } else {
-        //         parent.keys.add(gparent.keys.get(0));
-        //         parent.keys.add(uncle.keys.get(0));
-        //         for(Node n: uncle.children){
-        //             parent.children.add(n);
-        //         }
-        //         uncle.children.removeAll();
-        //         //loop to remove app children from gparent except parent
-        //         parent.prev=null;
-        //         root=parent;
-
-        //     }
-        // }
-
-
     }
     
     //Setting booleans Rsib and Lsib to check existence of siblings
@@ -355,17 +325,25 @@ public class BPlusTree
     	return temp.keys.get(temp.keys.size()-1);
     }
     public int LMostofRTree(Node parent, int rootIndex) {
+//    	Node temp = ((IndexNode)parent).children.get(rootIndex+1);
+//    	while(!temp.isLeaf()) {
+//    		temp = ((IndexNode)temp).children.get(0);
+//    	}
+//    	int key=temp.keys.get(0);
+//    	if(temp.keys.size()==1) {
+//    		deleteFromLeafList(locateLeaf(key));
+//        	temp.keys.remove(0);
+//    	}
+//    	((LeafNode)temp).values.remove(0);
+//    	return key;
+//    	
     	Node temp = ((IndexNode)parent).children.get(rootIndex+1);
+    	System.out.println("in LMostofRTree, key of L uncle is: " + temp.keys.get(0));
+    	System.out.println("in LMostofRTree, size of L uncle is: " + temp.keys.size());
     	while(!temp.isLeaf()) {
     		temp = ((IndexNode)temp).children.get(0);
     	}
-    	int key=temp.keys.get(0);
-    	if(temp.keys.size()==1) {
-    		deleteFromLeafList(locateLeaf(key));
-        	temp.keys.remove(0);
-    	}
-    	((LeafNode)temp).values.remove(0);
-    	return key;
+    	return temp.keys.get(0);
     }
 
     /**
@@ -625,7 +603,6 @@ public class BPlusTree
             if(getParent()!=null){
                 midNode.setParent(getParent());
             } 
-            //setParent(midNode);
             midNode.children.add(0, this);                              //placeholder for L child
             if(this.getParent()!=null) this.getParent().children.remove(getChildIndex(this, this.getParent()));
             System.out.println("\n new parent key: "+ midNode.keys.get(0) + "\nparent key child count: "+ midNode.children.size());
@@ -677,7 +654,6 @@ public class BPlusTree
                         	insertNode.children.get(i).setParent(this);
                             children.add(indexInsert+2, insertNode.children.get(i));
                     	}
-
                     }
                 }        
             }
@@ -721,8 +697,8 @@ public class BPlusTree
             next=null;
             updateLeafPointers();
             setParent(null);
-
         }
+        
         LeafNode(int leafIndex, IndexNode parent)
         {
             keys = new ArrayList<Integer>();
@@ -754,7 +730,6 @@ public class BPlusTree
                 keys.remove(midIndex);
                 values.remove(midIndex);
             }
-            //this.setParent(midNode);
             System.out.println("\nnew parent key"+ midNode.keys.get(0));
             midNode.children.add(0,null);
             childNode.setParent(midNode);
@@ -850,16 +825,16 @@ public class BPlusTree
         btree.Insert(100,76.0);
         btree.toString();
 
-        btree.Delete(15);
+        btree.Delete(21);
         btree.toString();
         System.out.println();
 
-        btree.Delete(16);
+        btree.Delete(23);
         btree.toString();
         System.out.println();
 
 
-        btree.Delete(5);
+        btree.Delete(24);
         btree.toString();
         System.out.println();
 
@@ -868,24 +843,40 @@ public class BPlusTree
         btree.toString();
         System.out.println();
 
-        btree.Delete(34);
+        btree.Delete(9);
         btree.toString();
         System.out.println();
 
-        btree.Delete(100);
-        btree.toString();
-        System.out.println();
-
-
-        btree.Delete(64);
-        btree.toString();
-        System.out.println();
-
-
-        btree.Delete(21);
-        btree.toString();
-        System.out.println();
-
-
+//        btree.Delete(100);
+//        btree.toString();
+//        System.out.println();
+//
+//
+//        btree.Delete(64);
+//        btree.toString();
+//        System.out.println();
+//
+//
+//        btree.Delete(21);
+//        btree.toString();
+//        System.out.println();
+//
+//        btree.Delete(23);
+//        btree.toString();
+//        System.out.println();
+//
+//        btree.Delete(24);
+//        btree.toString();
+//        System.out.println();
+//
+//
+//        btree.Delete(84);
+//        btree.toString();
+//        System.out.println();
+//
+//
+//        btree.Delete(28);
+//        btree.toString();
+//        System.out.println();
     }
 }
